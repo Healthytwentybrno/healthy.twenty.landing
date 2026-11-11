@@ -20,10 +20,11 @@ function setup() {
   setupMemberships_();
   getOrCreateMonthSheet_(monthKey_(new Date()));
   const folder = rootFolder_();
-  SpreadsheetApp.getUi().alert(
-    'Hotovo ✅\n\nZáložky Přehled, Permanentky a aktuální měsíc jsou připravené.\n' +
+  const msg = 'Hotovo ✅\n\nZáložky Přehled, Permanentky a aktuální měsíc jsou připravené.\n' +
     'Doklady se budou ukládat do složky na Disku:\n' + folder.getName() + '\n' + folder.getUrl() +
-    '\n\nTuhle složku nasdílej účetní (pravým tlačítkem → Sdílet). Nebo si v menu nastav vlastní složku.');
+    '\n\nTuhle složku nasdílej účetní (pravým tlačítkem → Sdílet). Nebo si v menu nastav vlastní složku.';
+  // Spuštěno z editoru (např. na mobilu) → okno nejde zobrazit, vypíše se do protokolu
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
 }
 
 function setApiKey() {

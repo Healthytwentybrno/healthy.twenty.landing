@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #111827; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #0f766e; --accent-soft: #ccfbf1; --ok: #047857; --warn: #b45309; --bad: #b91c1c;
+    --warn-soft: #fef3c7; --bad-soft: #fee2e2; --ok-soft: #d1fae5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0f14; --card: #151b23; --text: #e5e7eb; --muted: #9ca3af; --line: #263040;
+      --accent: #2dd4bf; --accent-soft: #134e4a; --ok: #34d399; --warn: #fbbf24; --bad: #f87171;
+      --warn-soft: #3b2f10; --bad-soft: #3b1414; --ok-soft: #0f2e24;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--text); }
+  header { padding: 16px 16px 0; max-width: 760px; margin: 0 auto; }
+  header h1 { font-size: 19px; margin: 0 0 12px; }
+  nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  nav button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--card); color: var(--text);
+               padding: 8px 14px; border-radius: 999px; font: inherit; cursor: pointer; }
+  nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  section { display: none; } section.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 16px; margin: 0 0 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 26px 12px; text-align: center; cursor: pointer; }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop strong { display: block; font-size: 16px; margin-bottom: 4px; }
+  input[type=file] { display: none; }
+  .btn { display: inline-block; background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+         padding: 10px 16px; font: inherit; cursor: pointer; text-decoration: none; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  .log { list-style: none; margin: 0; padding: 0; }
+  .log li { padding: 10px 12px; border-radius: 10px; margin-top: 8px; background: var(--bg); border: 1px solid var(--line); word-break: break-word; }
+  .log li.ok { background: var(--ok-soft); } .log li.warn { background: var(--warn-soft); } .log li.bad { background: var(--bad-soft); }
+  .log small { display: block; color: var(--muted); margin-top: 4px; }
+  a, .log a { color: var(--accent); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: transparent;
+             border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .kpi { background: var(--bg); border-radius: 10px; padding: 10px; }
+  .kpi .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: 12px; color: var(--muted); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .neg { color: var(--bad); } .pos { color: var(--ok); }
+  form.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  form.grid label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); gap: 4px; }
+  form.grid .full { grid-column: 1 / -1; }
+  input, select { font: inherit; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px;
+                  background: var(--bg); color: var(--text); width: 100%; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.soon { background: var(--warn-soft); color: var(--warn); }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.exp { background: var(--line); color: var(--muted); }
+  .member { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .member:last-child { border-bottom: 0; }
+  .member .r { text-align: right; flex: 0 0 auto; }
+  .filters { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .filters button { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+  .filters button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  @media (max-width: 520px) {
+    .kpis { grid-template-columns: 1fr 1fr; }
+    form.grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Účetní agent · Healthy Twenty</h1>
+  <nav>
+    <button data-tab="doklady" class="active">📄 Doklady</button>
+    <button data-tab="vypis">🏦 Výpis</button>
+    <button data-tab="prehled">📊 Přehled</button>
+    <button data-tab="permanentky">🎫 Permanentky</button>
+  </nav>
+</header>
+
+<main>
+  <!-- DOKLADY -->
+  <section id="doklady" class="active">
+    <div class="card">
+      <h2>Nahrát doklad</h2>
+      <p class="muted">Vyfoť účtenku nebo nahraj PDF faktury. Můžeš jich vybrat víc najednou.
+        Agent doklad přečte, spáruje s platbou z výpisu, uloží ho na Disk účetní a zapíše do tabulky.</p>
+      <label class="drop" id="dropDoc">
+        <strong>📷 Vyfotit / vybrat doklad</strong>
+        <span class="muted">JPG, PNG nebo PDF</span>
+        <input type="file" id="fileDoc" accept="image/*,application/pdf" multiple>
+      </label>
+      <ul class="log" id="logDoc"></ul>
+    </div>
+  </section>
+
+  <!-- VÝPIS -->
+  <section id="vypis">
+    <div class="card">
+      <h2>Nahrát bankovní výpis</h2>
+      <p class="muted">Nejlépe CSV export z internetového bankovnictví (je nejpřesnější), jde ale i PDF.
+        Pohyby se zapíšou do měsíčních záložek a samy se spárují s doklady, které už jsou nahrané.
+        Stejný výpis klidně nahraj znovu – duplicity se přeskočí.</p>
+      <label class="drop" id="dropSt">
+        <strong>🏦 Vybrat výpis</strong>
+        <span class="muted">CSV nebo PDF</span>
+        <input type="file" id="fileSt" accept=".csv,.txt,text/csv,application/pdf,image/*">
+      </label>
+      <ul class="log" id="logSt"></ul>
+    </div>
+  </section>
+
+  <!-- PŘEHLED -->
+  <section id="prehled">
+    <div class="card">
+      <h2 id="curTitle">Tento měsíc</h2>
+      <div class="kpis" id="kpis"><div class="muted"><span class="spinner"></span>Načítám…</div></div>
+    </div>
+    <div class="card">
+      <h2>Tržby, náklady, zisk po měsících</h2>
+      <div class="table-wrap"><table id="tblOverview"></table></div>
+      <p style="margin:12px 0 0; display:flex; gap:8px; flex-wrap:wrap">
+        <a class="btn ghost" id="lnkSheet" target="_blank" href="#">Otevřít tabulku</a>
+        <a class="btn ghost" id="lnkFolder" target="_blank" href="#">Složka účetní</a>
+        <button class="btn ghost" onclick="loadDashboard()">↻ Obnovit</button>
+      </p>
+    </div>
+    <div class="card">
+      <h2>❗ Platby bez dokladu</h2>
+      <div id="missing" class="muted">—</div>
+    </div>
+  </section>
+
+  <!-- PERMANENTKY -->
+  <section id="permanentky">
+    <div class="card">
+      <h2>Přidat permanentku</h2>
+      <form class="grid" id="formMember">
+        <label class="full">Jméno a příjmení<input name="name" required></label>
+        <label>E-mail<input name="email" type="email"></label>
+        <label>Telefon<input name="phone" type="tel"></label>
+        <label>Typ permanentky<select name="type" id="selType" required></select></label>
+        <label>Datum zakoupení<input name="bought" type="date" id="inBought" required></label>
+        <label class="full">Poznámka<input name="note"></label>
+        <div class="full"><button class="btn" type="submit">Uložit</button> <span id="memberMsg" class="muted"></span></div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Kdy komu končí platnost</h2>
+      <div class="filters" id="memberFilters">
+        <button data-f="soon" class="active">Končí brzy</button>
+        <button data-f="active">Platné</button>
+        <button data-f="expired">Prošlé</button>
+        <button data-f="all">Vše</button>
+      </div>
+      <input id="search" placeholder="Hledat jméno…" style="margin-bottom:6px">
+      <div id="members" class="muted"><span class="spinner"></span>Načítám…</div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // ---------- Záložky ----------
+  document.querySelectorAll('nav button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('active', x === b); });
+      document.querySelectorAll('section').forEach(function (s) { s.classList.toggle('active', s.id === b.dataset.tab); });
+      if (b.dataset.tab === 'prehled') loadDashboard();
+      if (b.dataset.tab === 'permanentky') loadMembers();
+    });
+  });
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function kc(n) { return Math.round(n).toLocaleString('cs-CZ') + ' Kč'; }
+
+  function call(fn, arg) {
+    return new Promise(function (resolve) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (e) { resolve({ ok: false, message: '⚠️ ' + (e && e.message || e) }); })[fn](arg);
+    });
+  }
+
+  // ---------- Nahrávání souborů ----------
+  /** Zmenší fotku (rychlejší nahrání, levnější zpracování). PDF a CSV posílá beze změny. */
+  function readFile(file) {
+    return new Promise(function (resolve, reject) {
+      if (file.type.indexOf('image/') === 0 && file.type !== 'image/gif') {
+        var img = new Image();
+        var url = URL.createObjectURL(file);
+        img.onload = function () {
+          var max = 2000, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
+          var c = document.createElement('canvas');
+          c.width = Math.round(w * k); c.height = Math.round(h * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url);
+          var data = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+          resolve({ name: file.name.replace(/\.\w+$/, '') + '.jpg', mimeType: 'image/jpeg', data: data });
+        };
+        img.onerror = function () { reject(new Error('Obrázek se nepodařilo načíst (zkus JPG nebo PDF).')); };
+        img.src = url;
+      } else {
+        var r = new FileReader();
+        r.onload = function () {
+          var type = file.type || (/\.csv$/i.test(file.name) ? 'text/csv' : 'application/octet-stream');
+          resolve({ name: file.name, mimeType: type, data: String(r.result).split(',')[1] });
+        };
+        r.onerror = function () { reject(r.error); };
+        r.readAsDataURL(file);
+      }
+    });
+  }
+
+  function setupDrop(dropId, inputId, logId, apiFn, busyText) {
+    var drop = document.getElementById(dropId), input = document.getElementById(inputId), log = document.getElementById(logId);
+    ['dragenter', 'dragover'].forEach(function (e) { drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (e) { drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (ev) { handle(ev.dataTransfer.files); });
+    input.addEventListener('change', function () { handle(input.files); input.value = ''; });
+
+    async function handle(files) {
+      // Po jednom – ať se nepřekrývají zápisy a vidíš potvrzení u každého souboru
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        var li = document.createElement('li');
+        li.innerHTML = '<span class="spinner"></span>' + esc(f.name) + ' – ' + busyText;
+        log.prepend(li);
+        var res;
+        try { res = await call(apiFn, await readFile(f)); }
+        catch (e) { res = { ok: false, message: '⚠️ ' + e.message }; }
+        li.className = !res.ok ? 'bad' : (res.duplicate || res.matched === false || (res.missing && res.missing.length)) ? 'warn' : 'ok';
+        var html = esc(res.message);
+        if (res.details) {
+          var d = res.details;
+          html += '<small>' + esc(d.kategorie) + ' · ' + esc(d.popis) +
+            (d.dph ? ' · DPH ' + kc(d.dph) : '') + (d.cislo ? ' · č. ' + esc(d.cislo) : '') +
+            (d.poznamka ? '<br>Pozn.: ' + esc(d.poznamka) : '') +
+            (d.url ? '<br><a href="' + esc(d.url) + '" target="_blank">Otevřít uložený doklad</a>' : '') + '</small>';
+        }
+        if (res.missing && res.missing.length) {
+          html += '<small>Chybí doklad:<br>' + res.missing.map(esc).join('<br>') + '</small>';
+        }
+        li.innerHTML = html;
+      }
+    }
+  }
+  setupDrop('dropDoc', 'fileDoc', 'logDoc', 'apiProcessReceipt', 'čtu doklad a páruju…');
+  setupDrop('dropSt', 'fileSt', 'logSt', 'apiProcessStatement', 'zpracovávám výpis (může trvat i minutu)…');
+
+  // ---------- Přehled ----------
+  async function loadDashboard() {
+    var res = await call('apiDashboard');
+    if (!res.ok) { document.getElementById('kpis').textContent = res.message; return; }
+    document.getElementById('lnkSheet').href = res.sheetUrl;
+    var lf = document.getElementById('lnkFolder');
+    if (res.folderUrl) lf.href = res.folderUrl; else lf.style.display = 'none';
+
+    var now = new Date();
+    var key = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    var cur = res.overview.filter(function (r) { return r.month === key; })[0] ||
+      { month: key, revenue: 0, costs: 0, profit: 0, docs: 0, missing: 0, unpaid: 0 };
+    document.getElementById('curTitle').textContent = 'Tento měsíc (' + key + ')';
+    document.getElementById('kpis').innerHTML = [
+      ['Tržby', kc(cur.revenue), ''], ['Náklady', kc(cur.costs), ''],
+      ['Zisk', kc(cur.profit), cur.profit < 0 ? 'neg' : 'pos'],
+      ['Doklady', cur.docs, ''], ['Chybí doklad', cur.missing, cur.missing ? 'neg' : ''],
+      ['Doklad bez platby', cur.unpaid, ''],
+    ].map(function (k) { return '<div class="kpi"><div class="v ' + k[2] + '">' + k[1] + '</div><div class="l">' + k[0] + '</div></div>'; }).join('');
+
+    var rows = res.overview.slice().reverse();
+    document.getElementById('tblOverview').innerHTML =
+      '<tr><th>Měsíc</th><th>Tržby</th><th>Náklady</th><th>Zisk</th><th>Chybí dokl.</th></tr>' +
+      (rows.length ? rows.map(function (r) {
+        var strong = r.month === 'Celkem' ? ' style="font-weight:700"' : '';
+        return '<tr' + strong + '><td>' + esc(r.month) + '</td><td>' + kc(r.revenue) + '</td><td>' + kc(r.costs) +
+          '</td><td class="' + (r.profit < 0 ? 'neg' : '') + '">' + kc(r.profit) + '</td><td>' + (r.missing || '') + '</td></tr>';
+      }).join('') : '<tr><td colspan="5" class="muted">Zatím žádná data.</td></tr>');
+
+    var m = document.getElementById('missing');
+    m.innerHTML = res.missing.length ? '<ul class="log">' + res.missing.map(function (x) {
+      return '<li class="bad">' + esc(x.date) + ' · <b>' + esc(x.party) + '</b> · ' + kc(x.amount) +
+        '<small>' + esc(x.desc) + ' (záložka ' + esc(x.month) + ')</small></li>';
+    }).join('') + '</ul>' : 'Všechny výdaje mají doklad. 🎉';
+  }
+
+  // ---------- Permanentky ----------
+  var members = [], filter = 'soon', warnDays = 14;
+  document.getElementById('inBought').value = new Date().toISOString().slice(0, 10);
+
+  async function loadMembers() {
+    var res = await call('apiMemberships');
+    if (!res.ok) { document.getElementById('members').textContent = res.message; return; }
+    members = res.list; warnDays = res.warnDays;
+    var sel = document.getElementById('selType'), keep = sel.value;
+    sel.innerHTML = res.types.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('');
+    if (keep) sel.value = keep;
+    renderMembers();
+  }
+
+  function renderMembers() {
+    var q = document.getElementById('search').value.trim().toLowerCase();
+    var list = members.filter(function (m) {
+      if (q && m.name.toLowerCase().indexOf(q) === -1) return false;
+      if (filter === 'soon') return m.daysLeft !== null && m.daysLeft >= 0 && m.daysLeft <= warnDays;
+      if (filter === 'active') return m.daysLeft !== null && m.daysLeft >= 0;
+      if (filter === 'expired') return m.daysLeft !== null && m.daysLeft < 0;
+      return true;
+    });
+    var box = document.getElementById('members');
+    if (!list.length) { box.innerHTML = filter === 'soon' ? 'Nikomu v příštích ' + warnDays + ' dnech nekončí platnost. 👍' : 'Nic tu není.'; return; }
+    box.classList.remove('muted');
+    box.innerHTML = list.map(function (m) {
+      var cls = m.daysLeft < 0 ? 'exp' : m.daysLeft <= warnDays ? 'soon' : 'ok';
+      var txt = m.daysLeft === null ? '?' : m.daysLeft < 0 ? 'prošla před ' + (-m.daysLeft) + ' dny'
+        : m.daysLeft === 0 ? 'končí dnes' : 'zbývá ' + m.daysLeft + ' dní';
+      return '<div class="member"><div><b>' + esc(m.name) + '</b><div class="muted">' + esc(m.type) +
+        (m.phone ? ' · <a href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a>' : '') +
+        (m.email ? ' · ' + esc(m.email) : '') + '</div></div>' +
+        '<div class="r"><span class="pill ' + cls + '">' + txt + '</span><div class="muted">do ' + esc(m.end) + '</div></div></div>';
+    }).join('');
+  }
+
+  document.getElementById('memberFilters').addEventListener('click', function (e) {
+    if (!e.target.dataset.f) return;
+    filter = e.target.dataset.f;
+    document.querySelectorAll('#memberFilters button').forEach(function (b) { b.classList.toggle('active', b === e.target); });
+    renderMembers();
+  });
+  document.getElementById('search').addEventListener('input', renderMembers);
+
+  document.getElementById('formMember').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var f = e.target, msg = document.getElementById('memberMsg');
+    var data = Object.fromEntries(new FormData(f).entries());
+    msg.innerHTML = '<span class="spinner"></span>Ukládám…';
+    var res = await call('apiAddMembership', data);
+    msg.textContent = res.message;
+    if (res.ok) {
+      ['name', 'email', 'phone', 'note'].forEach(function (n) { f.elements[n].value = ''; });
+      loadMembers();
+    }
+  });
+</script>
+</body>
+</html>
