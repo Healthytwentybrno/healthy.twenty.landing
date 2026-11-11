@@ -52,12 +52,12 @@ Platí se jen za AI (Claude API): řádově **jednotky korun za doklad**. Přesn
 ### 5. Typy permanentek
 V záložce **Typy permanentek** přepiš ukázkové řádky podle svého ceníku:
 
-| Typ | Platnost (měsíce) | Platnost (dny navíc) | Cena (Kč) |
+| Typ | Platnost (týdny) | Platnost (dny navíc) | Cena (Kč) |
 |---|---|---|---|
-| 10 vstupů | 3 | 0 | … |
-| Zkušební trénink | 0 | 14 | … |
+| 10 vstupů | 12 | 0 | … |
+| Zkušební trénink | 2 | 0 | … |
 
-Konec platnosti = datum nákupu + měsíce + dny. Když klientce platnost prodloužíš (nemoc, dovolená), zapiš nové datum do sloupce **„Konec ručně“**.
+Konec platnosti = datum nákupu + týdny × 7 + dny navíc. Když klientce platnost prodloužíš (nemoc, dovolená), zapiš nové datum do sloupce **„Konec ručně“**.
 
 ---
 

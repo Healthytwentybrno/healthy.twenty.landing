@@ -10,21 +10,31 @@ const MEMBERSHIP_HEADERS = ['Jméno', 'E-mail', 'Telefon', 'Typ', 'Datum zakoupe
 function setupMemberships_() {
   const ss = ss_();
 
+  const typeHeaders = [['Typ', 'Platnost (týdny)', 'Platnost (dny navíc)', 'Cena (Kč)']];
   let types = ss.getSheetByName(SHEET_NAMES.TYPES);
   if (!types) {
     types = ss.insertSheet(SHEET_NAMES.TYPES);
-    types.getRange(1, 1, 1, 4).setValues([['Typ', 'Platnost (měsíce)', 'Platnost (dny navíc)', 'Cena (Kč)']])
-      .setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
     // Ukázkové typy – přepiš podle svého ceníku
     types.getRange(2, 1, 4, 4).setValues([
-      ['Zkušební trénink', 0, 14, ''],
-      ['Měsíční', 1, 0, ''],
-      ['10 vstupů', 3, 0, ''],
-      ['20 vstupů', 6, 0, ''],
+      ['Zkušební trénink', 2, 0, ''],
+      ['Měsíční', 4, 0, ''],
+      ['10 vstupů', 12, 0, ''],
+      ['20 vstupů', 24, 0, ''],
     ]);
     types.setFrozenRows(1);
     types.setColumnWidths(1, 4, 160);
+  } else if (types.getRange('B1').getValue() === 'Platnost (měsíce)') {
+    // Starší verze měla platnost v měsících → převést na týdny
+    const n = types.getLastRow() - 1;
+    if (n > 0) {
+      const b = types.getRange(2, 2, n, 1).getValues().map(function (r) {
+        return [r[0] === '' ? '' : Math.round(Number(r[0]) * 52 / 12)];
+      });
+      types.getRange(2, 2, n, 1).setValues(b);
+    }
   }
+  types.getRange(1, 1, 1, 4).setValues(typeHeaders)
+    .setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
 
   let sh = ss.getSheetByName(SHEET_NAMES.MEMBERSHIPS);
   if (!sh) sh = ss.insertSheet(SHEET_NAMES.MEMBERSHIPS, 1);
@@ -36,11 +46,11 @@ function setupMemberships_() {
   sh.getRange('H2:H').setNumberFormat('0');
 
   const t = "'" + SHEET_NAMES.TYPES + "'!$A$2:$C";
-  const months = 'IFERROR(VLOOKUP(D2:D,' + t + ',2,FALSE),0)';
+  const weeks = 'IFERROR(VLOOKUP(D2:D,' + t + ',2,FALSE),0)';
   const days = 'IFERROR(VLOOKUP(D2:D,' + t + ',3,FALSE),0)';
-  // DATE(rok, měsíc + N, den) – funguje v ARRAYFORMULA (EDATE ne)
+  // Konec = datum nákupu + týdny × 7 + dny navíc
   sh.getRange('G1').setFormula('={"Konec platnosti";ARRAYFORMULA(IF(E2:E="","",IF(F2:F<>"",F2:F,' +
-    'DATE(YEAR(E2:E),MONTH(E2:E)+' + months + ',DAY(E2:E))+' + days + ')))}');
+    'E2:E+' + weeks + '*7+' + days + ')))}');
   sh.getRange('H1').setFormula('={"Zbývá dní";ARRAYFORMULA(IF(G2:G="","",G2:G-TODAY()))}');
   sh.getRange('I1').setFormula('={"Stav";ARRAYFORMULA(IF(H2:H="","",IF(H2:H<0,"Prošlá",IF(H2:H<=' +
     CONFIG.WARN_DAYS + ',"Končí brzy","Platná"))))}');
