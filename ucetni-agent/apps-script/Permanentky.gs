@@ -87,11 +87,13 @@ function getMemberships_() {
     .filter(function (r) { return r[0] !== '' || r[4] !== ''; })
     .map(function (r) {
       const end = r[6] instanceof Date ? r[6] : null;
+      // Zbývající dny počítáme tady (nespoléháme jen na vzorec ve sloupci H)
+      const daysLeft = end ? daysUntil_(end) : null;
       return {
         name: String(r[0]), email: String(r[1]), phone: String(r[2]), type: String(r[3]),
         bought: r[4] instanceof Date ? fmtDate_(r[4]) : '',
         end: end ? fmtDate_(end) : '', endTs: end ? end.getTime() : null,
-        daysLeft: r[7] === '' ? null : Number(r[7]), status: String(r[8]), note: String(r[9]),
+        daysLeft: daysLeft, status: String(r[8]), note: String(r[9]),
       };
     })
     .sort(function (a, b) {
@@ -116,5 +118,17 @@ function addMembership_(m) {
   sh.getRange(row, 10).setValue(m.note || '');
   SpreadsheetApp.flush();
   const end = sh.getRange(row, 7).getValue();
-  return { ok: true, message: '✅ ' + m.name + ' – ' + m.type + ', platí do ' + (end instanceof Date ? fmtDate_(end) : '?') + '.' };
+  if (!(end instanceof Date)) {
+    return { ok: true, message: '⚠️ Uloženo, ale typ „' + m.type + '“ nemá v záložce Typy permanentek vyplněnou platnost.' };
+  }
+  return { ok: true, message: '✅ ' + m.name + ' – ' + m.type + ', platí do ' + fmtDate_(end) +
+    ' (zbývá ' + daysUntil_(end) + ' dní).' };
+}
+
+/** Počet dní od dneška do data (dnes = 0, včera = −1). */
+function daysUntil_(date) {
+  const tz = CONFIG.TIMEZONE;
+  const a = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const b = Utilities.formatDate(date, tz, 'yyyy-MM-dd');
+  return Math.round((parseDate_(b).getTime() - parseDate_(a).getTime()) / 86400000);
 }

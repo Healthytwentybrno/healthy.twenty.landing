@@ -158,8 +158,8 @@
     <div class="card">
       <h2>Kdy komu končí platnost</h2>
       <div class="filters" id="memberFilters">
-        <button data-f="soon" class="active">Končí brzy</button>
-        <button data-f="active">Platné</button>
+        <button data-f="active" class="active">Platné</button>
+        <button data-f="soon">Končí brzy</button>
         <button data-f="expired">Prošlé</button>
         <button data-f="all">Vše</button>
       </div>
@@ -295,7 +295,7 @@
   }
 
   // ---------- Permanentky ----------
-  var members = [], filter = 'soon', warnDays = 14;
+  var members = [], filter = 'active', warnDays = 14;
   document.getElementById('inBought').value = new Date().toISOString().slice(0, 10);
 
   async function loadMembers() {
@@ -307,6 +307,8 @@
     if (keep) sel.value = keep;
     renderMembers();
   }
+
+  function dny(n) { return n === 1 ? '1 den' : (n >= 2 && n <= 4) ? n + ' dny' : n + ' dní'; }
 
   function renderMembers() {
     var q = document.getElementById('search').value.trim().toLowerCase();
@@ -322,8 +324,8 @@
     box.classList.remove('muted');
     box.innerHTML = list.map(function (m) {
       var cls = m.daysLeft < 0 ? 'exp' : m.daysLeft <= warnDays ? 'soon' : 'ok';
-      var txt = m.daysLeft === null ? '?' : m.daysLeft < 0 ? 'prošla před ' + (-m.daysLeft) + ' dny'
-        : m.daysLeft === 0 ? 'končí dnes' : 'zbývá ' + m.daysLeft + ' dní';
+      var txt = m.daysLeft === null ? 'neznámý typ' : m.daysLeft < 0 ? 'prošla před ' + dny(-m.daysLeft)
+        : m.daysLeft === 0 ? 'končí dnes' : 'zbývá ' + dny(m.daysLeft);
       return '<div class="member"><div><b>' + esc(m.name) + '</b><div class="muted">' + esc(m.type) +
         (m.phone ? ' · <a href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a>' : '') +
         (m.email ? ' · ' + esc(m.email) : '') + '</div></div>' +
