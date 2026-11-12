@@ -67,7 +67,9 @@
   .pill.exp { background: var(--line); color: var(--muted); }
   .member { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .member:last-child { border-bottom: 0; }
-  .member .r { text-align: right; flex: 0 0 auto; }
+  .member .r { text-align: right; flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .member .until { font-size: 14px; }
+  input[type=date] { -webkit-appearance: none; appearance: none; min-height: 42px; text-align: left; }
   .filters { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
   .filters button { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer; }
   .filters button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
@@ -324,12 +326,13 @@
     box.classList.remove('muted');
     box.innerHTML = list.map(function (m) {
       var cls = m.daysLeft < 0 ? 'exp' : m.daysLeft <= warnDays ? 'soon' : 'ok';
-      var txt = m.daysLeft === null ? 'neznámý typ' : m.daysLeft < 0 ? 'prošla před ' + dny(-m.daysLeft)
+      var txt = (m.daysLeft === null || m.daysLeft === undefined) ? 'chybí platnost typu' : m.daysLeft < 0 ? 'prošla před ' + dny(-m.daysLeft)
         : m.daysLeft === 0 ? 'končí dnes' : 'zbývá ' + dny(m.daysLeft);
       return '<div class="member"><div><b>' + esc(m.name) + '</b><div class="muted">' + esc(m.type) +
         (m.phone ? ' · <a href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a>' : '') +
         (m.email ? ' · ' + esc(m.email) : '') + '</div></div>' +
-        '<div class="r"><span class="pill ' + cls + '">' + txt + '</span><div class="muted">do ' + esc(m.end) + '</div></div></div>';
+        '<div class="r"><div class="until">Platí do: <b>' + (m.end ? esc(m.end) : '?') + '</b></div>' +
+        '<span class="pill ' + cls + '">' + txt + '</span></div></div>';
     }).join('');
   }
 

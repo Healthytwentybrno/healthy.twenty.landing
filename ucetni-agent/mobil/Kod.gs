@@ -860,8 +860,12 @@ function setupMemberships_() {
   sh.getRange('H2:H').setNumberFormat('0');
 
   const t = "'" + SHEET_NAMES.TYPES + "'!$A$2:$C";
-  const weeks = 'IFERROR(VLOOKUP(D2:D,' + t + ',2,FALSE),0)';
-  const days = 'IFERROR(VLOOKUP(D2:D,' + t + ',3,FALSE),0)';
+  // Číslo vytáhneme i z textu typu „15 týdnů“
+  const num = function (col) {
+    return 'IFERROR(VALUE(REGEXEXTRACT(TO_TEXT(VLOOKUP(D2:D,' + t + ',' + col + ',FALSE)),"[0-9]+")),0)';
+  };
+  const weeks = num(2);
+  const days = num(3);
   // Konec = datum nákupu + týdny × 7 + dny navíc
   sh.getRange('G1').setFormula('={"Konec platnosti";ARRAYFORMULA(IF(E2:E="","",IF(F2:F<>"",F2:F,' +
     'E2:E+' + weeks + '*7+' + days + ')))}');
@@ -894,20 +898,66 @@ function getMembershipTypes_() {
     .map(function (r) { return String(r[0]).trim(); }).filter(String);
 }
 
+/** Typy permanentek → { 'název': { weeks, days } } (čísla bere i z textu „15 týdnů“). */
+function typesMap_() {
+  const sh = ss_().getSheetByName(SHEET_NAMES.TYPES);
+  const map = {};
+  if (!sh || sh.getLastRow() < 2) return map;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach(function (r) {
+    const name = String(r[0]).trim();
+    if (name) map[name.toLowerCase()] = { weeks: num_(r[1]), days: num_(r[2]) };
+  });
+  return map;
+}
+
+function num_(v) {
+  if (typeof v === 'number') return v;
+  const m = String(v || '').replace(',', '.').match(/\d+(\.\d+)?/);
+  return m ? Number(m[0]) : 0;
+}
+
+/** Datum z buňky: Date, '2026-11-12', '12. 11. 2026' i '12.11.2026'. */
+function anyDate_(v) {
+  if (v instanceof Date) return v;
+  const iso = parseDate_(v);
+  if (iso) return iso;
+  const m = String(v || '').match(/^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+  return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 12, 0, 0) : null;
+}
+
+/** Konec platnosti = ruční datum, jinak datum nákupu + týdny × 7 + dny navíc. Neznámý typ → null. */
+function membershipEnd_(bought, manualEnd, type, types) {
+  const manual = anyDate_(manualEnd);
+  if (manual) return manual;
+  const b = anyDate_(bought);
+  const t = types[String(type || '').trim().toLowerCase()];
+  if (!b || !t || !(t.weeks || t.days)) return null;
+  const end = new Date(b.getFullYear(), b.getMonth(), b.getDate(), 12, 0, 0);
+  end.setDate(end.getDate() + Math.round(t.weeks * 7 + t.days));
+  return end;
+}
+
+function membershipStatus_(daysLeft) {
+  if (daysLeft === null) return '';
+  return daysLeft < 0 ? 'Prošlá' : daysLeft <= CONFIG.WARN_DAYS ? 'Končí brzy' : 'Platná';
+}
+
 function getMemberships_() {
   const sh = ss_().getSheetByName(SHEET_NAMES.MEMBERSHIPS);
   if (!sh || sh.getLastRow() < 2) return [];
+  const types = typesMap_();
   return sh.getRange(2, 1, sh.getLastRow() - 1, MEMBERSHIP_HEADERS.length).getValues()
     .filter(function (r) { return r[0] !== '' || r[4] !== ''; })
     .map(function (r) {
-      const end = r[6] instanceof Date ? r[6] : null;
-      // Zbývající dny počítáme tady (nespoléháme jen na vzorec ve sloupci H)
+      // Počítáme tady v kódu – nespoléháme na vzorce v tabulce
+      const end = membershipEnd_(r[4], r[5], r[3], types);
       const daysLeft = end ? daysUntil_(end) : null;
+      const bought = anyDate_(r[4]);
       return {
         name: String(r[0]), email: String(r[1]), phone: String(r[2]), type: String(r[3]),
-        bought: r[4] instanceof Date ? fmtDate_(r[4]) : '',
-        end: end ? fmtDate_(end) : '', endTs: end ? end.getTime() : null,
-        daysLeft: daysLeft, status: String(r[8]), note: String(r[9]),
+        bought: bought ? fmtDate_(bought) : '',
+        end: end ? fmtDate_(end) : '',
+        daysLeft: daysLeft, status: membershipStatus_(daysLeft), note: String(r[9]),
       };
     })
     .sort(function (a, b) {
@@ -931,12 +981,14 @@ function addMembership_(m) {
   sh.getRange(row, 1, 1, 6).setValues([[m.name, m.email || '', m.phone || '', m.type, bought, '']]);
   sh.getRange(row, 10).setValue(m.note || '');
   SpreadsheetApp.flush();
-  const end = sh.getRange(row, 7).getValue();
-  if (!(end instanceof Date)) {
-    return { ok: true, message: '⚠️ Uloženo, ale typ „' + m.type + '“ nemá v záložce Typy permanentek vyplněnou platnost.' };
+
+  const end = membershipEnd_(bought, '', m.type, typesMap_());
+  if (!end) {
+    return { ok: true, message: '⚠️ Uloženo, ale typ „' + m.type + '“ nemá v záložce Typy permanentek ' +
+      'vyplněnou platnost (do sloupce B napiš jen číslo týdnů, např. 15).' };
   }
-  return { ok: true, message: '✅ ' + m.name + ' – ' + m.type + ', platí do ' + fmtDate_(end) +
-    ' (zbývá ' + daysUntil_(end) + ' dní).' };
+  return { ok: true, message: '✅ ' + m.name + ' – ' + m.type + ' · Platí do: ' + fmtDate_(end) +
+    ' · Zbývá ' + daysUntil_(end) + ' dní' };
 }
 
 /** Počet dní od dneška do data (dnes = 0, včera = −1). */
