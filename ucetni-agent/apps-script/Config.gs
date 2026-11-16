@@ -4,7 +4,7 @@
  * (nastavuje se přes menu „Účetní agent → Nastavit API klíč“).
  */
 const CONFIG = {
-  VERSION: '2026-11-16',      // zobrazuje se dole v aplikaci – podle toho poznáš, že běží nová verze
+  VERSION: '2026-11-16b',      // zobrazuje se dole v aplikaci – podle toho poznáš, že běží nová verze
   MODEL: 'claude-opus-5-5',
   EFFORT_RECEIPT: 'medium',   // čtení dokladů
   EFFORT_STATEMENT: 'low',    // přepis výpisu (jednoduchý, ale dlouhý úkol)
@@ -82,7 +82,26 @@ const STATUS = {
   NO_DOC_NEEDED: 'Bez dokladu (OK)',
 };
 
-const MONTH_SHEET_RE = /^\d{4}-\d{2}$/;
+const MONTH_SHEET_RE = /^\d{4}-\d{2}$/;   // starý název záložky (2026-11)
+
+// Měsíční záložky se jmenují „Listopad 2026“. Interně pracujeme s klíčem „2026-11“.
+const MONTH_NAMES = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
+  'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
+
+/** '2026-11' → 'Listopad 2026' */
+function monthSheetName_(key) {
+  return MONTH_NAMES[Number(key.slice(5, 7)) - 1] + ' ' + key.slice(0, 4);
+}
+
+/** 'Listopad 2026' (i starý '2026-11') → '2026-11'; jiná záložka → null */
+function monthKeyFromName_(name) {
+  name = String(name || '').trim();
+  if (MONTH_SHEET_RE.test(name)) return name;
+  const m = name.match(/^(\S+)\s+(\d{4})$/);
+  if (!m) return null;
+  const i = MONTH_NAMES.indexOf(m[1]);
+  return i === -1 ? null : m[2] + '-' + ('0' + (i + 1)).slice(-2);
+}
 
 function prop_(key) {
   return PropertiesService.getScriptProperties().getProperty(key);

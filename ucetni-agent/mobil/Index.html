@@ -182,7 +182,7 @@
   </section>
 </main>
 <footer style="text-align:center;padding:4px 16px 24px" class="muted">
-  Verze aplikace: <span id="verHtml">2026-11-16</span> · server: <span id="verServer">…</span>
+  Verze aplikace: <span id="verHtml">2026-11-16b</span> · server: <span id="verServer">…</span>
 </footer>
 
 <script>
@@ -284,9 +284,9 @@
 
     var now = new Date();
     var key = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    var cur = res.overview.filter(function (r) { return r.month === key; })[0] ||
+    var cur = res.overview.filter(function (r) { return r.key === key; })[0] ||
       { month: key, revenue: 0, costs: 0, profit: 0, docs: 0, missing: 0, unpaid: 0 };
-    document.getElementById('curTitle').textContent = 'Tento měsíc (' + key + ')';
+    document.getElementById('curTitle').textContent = 'Tento měsíc (' + cur.month + ')';
     document.getElementById('kpis').innerHTML = [
       ['Tržby', kc(cur.revenue), ''], ['Náklady', kc(cur.costs), ''],
       ['Zisk', kc(cur.profit), cur.profit < 0 ? 'neg' : 'pos'],

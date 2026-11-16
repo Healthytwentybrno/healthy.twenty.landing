@@ -11,7 +11,7 @@
  * (nastavuje se přes menu „Účetní agent → Nastavit API klíč“).
  */
 const CONFIG = {
-  VERSION: '2026-11-16',      // zobrazuje se dole v aplikaci – podle toho poznáš, že běží nová verze
+  VERSION: '2026-11-16b',      // zobrazuje se dole v aplikaci – podle toho poznáš, že běží nová verze
   MODEL: 'claude-opus-5-5',
   EFFORT_RECEIPT: 'medium',   // čtení dokladů
   EFFORT_STATEMENT: 'low',    // přepis výpisu (jednoduchý, ale dlouhý úkol)
@@ -89,7 +89,26 @@ const STATUS = {
   NO_DOC_NEEDED: 'Bez dokladu (OK)',
 };
 
-const MONTH_SHEET_RE = /^\d{4}-\d{2}$/;
+const MONTH_SHEET_RE = /^\d{4}-\d{2}$/;   // starý název záložky (2026-11)
+
+// Měsíční záložky se jmenují „Listopad 2026“. Interně pracujeme s klíčem „2026-11“.
+const MONTH_NAMES = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
+  'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
+
+/** '2026-11' → 'Listopad 2026' */
+function monthSheetName_(key) {
+  return MONTH_NAMES[Number(key.slice(5, 7)) - 1] + ' ' + key.slice(0, 4);
+}
+
+/** 'Listopad 2026' (i starý '2026-11') → '2026-11'; jiná záložka → null */
+function monthKeyFromName_(name) {
+  name = String(name || '').trim();
+  if (MONTH_SHEET_RE.test(name)) return name;
+  const m = name.match(/^(\S+)\s+(\d{4})$/);
+  if (!m) return null;
+  const i = MONTH_NAMES.indexOf(m[1]);
+  return i === -1 ? null : m[2] + '-' + ('0' + (i + 1)).slice(-2);
+}
 
 function prop_(key) {
   return PropertiesService.getScriptProperties().getProperty(key);
@@ -212,16 +231,30 @@ function fmtKc_(n) {
 
 // ---------- Měsíční záložky ----------
 
+/** Všechny měsíční záložky. Staré názvy „2026-11“ rovnou přejmenuje na „Listopad 2026“. */
+function monthSheets_() {
+  return ss_().getSheets().filter(function (s) {
+    const name = s.getName();
+    if (!MONTH_SHEET_RE.test(name)) return monthKeyFromName_(name) !== null;
+    s.setName(monthSheetName_(name));
+    return true;
+  });
+}
+
 function getOrCreateMonthSheet_(key) {
   const ss = ss_();
-  let sh = ss.getSheetByName(key);
+  const name = monthSheetName_(key);
+  const months = monthSheets_();
+  let sh = ss.getSheetByName(name);
   if (sh) return sh;
 
-  // Zařadit záložku chronologicky za Přehled
-  const months = ss.getSheets().filter(function (s) { return MONTH_SHEET_RE.test(s.getName()); });
+  // Zařadit záložku chronologicky (za poslední dřívější měsíc, jinak hned za Přehled)
   let index = 1;
-  months.forEach(function (s) { if (s.getName() > key) return; index = Math.max(index, s.getIndex()); });
-  sh = ss.insertSheet(key, index);
+  months.forEach(function (s) {
+    if (monthKeyFromName_(s.getName()) > key) return;
+    index = Math.max(index, s.getIndex());
+  });
+  sh = ss.insertSheet(name, index);
 
   sh.getRange(1, 1, 1, NUM_COLS).setValues([MONTH_HEADERS])
     .setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
@@ -281,8 +314,7 @@ function getOrCreateMonthSheet_(key) {
 /** Všechny řádky ze všech měsíčních záložek: [{sheet, row, v: [...hodnoty]}] */
 function readAllMonthRows_() {
   const out = [];
-  ss_().getSheets().forEach(function (sh) {
-    if (!MONTH_SHEET_RE.test(sh.getName())) return;
+  monthSheets_().forEach(function (sh) {
     const last = sh.getLastRow();
     if (last < 2) return;
     const values = sh.getRange(2, 1, last - 1, NUM_COLS).getValues();
@@ -316,8 +348,8 @@ function rebuildOverview_() {
   let sh = ss.getSheetByName(SHEET_NAMES.OVERVIEW);
   if (!sh) sh = ss.insertSheet(SHEET_NAMES.OVERVIEW, 0);
 
-  const months = ss.getSheets().map(function (s) { return s.getName(); })
-    .filter(function (n) { return MONTH_SHEET_RE.test(n); }).sort();
+  const months = monthSheets_().map(function (s) { return s.getName(); })
+    .sort(function (a, b) { return monthKeyFromName_(a) < monthKeyFromName_(b) ? -1 : 1; });
 
   sh.clear();
   const header = ['Měsíc', 'Tržby', 'Náklady', 'Zisk', 'Marže', 'Počet dokladů', 'Chybí doklad', 'Doklad bez platby'];
@@ -351,7 +383,7 @@ function getOverviewData_() {
   if (!sh || sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues().map(function (r) {
     return {
-      month: String(r[0]), revenue: Number(r[1]) || 0, costs: Number(r[2]) || 0,
+      month: String(r[0]), key: monthKeyFromName_(r[0]), revenue: Number(r[1]) || 0, costs: Number(r[2]) || 0,
       profit: Number(r[3]) || 0, docs: Number(r[5]) || 0, missing: Number(r[6]) || 0,
       unpaid: Number(r[7]) || 0,
     };
@@ -576,7 +608,7 @@ function saveDocEntry_(e, makeLink) {
       ? bestMatch_({ amount: e.amount, date: e.docDate, vs: e.matchVs, supplier: e.supplier }, candidates, true)
       : null;
 
-    const monthKey = match ? match.sheet.getName() : monthKey_(e.docDate || new Date());
+    const monthKey = match ? monthKeyFromName_(match.sheet.getName()) : monthKey_(e.docDate || new Date());
     const link = makeLink(monthKey);
 
     let sheet;
@@ -821,7 +853,7 @@ function processStatement(file) {
         merged[COL.STATUS - 1] = STATUS.MATCHED;
         merged[COL.SOURCE - 1] = 'Banka + doklad';
         merged[COL.PAYMENT_ID - 1] = p.id;
-        if (hit.sheet.getName() === key) {
+        if (monthKeyFromName_(hit.sheet.getName()) === key) {
           hit.sheet.getRange(hit.row, 1, 1, NUM_COLS).setValues([merged]);
           touched[key] = hit.sheet;
         } else {
@@ -1184,6 +1216,8 @@ function apiProcessStatement(file) { return safe_(function () { return processSt
 
 function apiDashboard() {
   return safe_(function () {
+    // Na začátku měsíce rovnou založí záložku nového měsíce
+    getOrCreateMonthSheet_(monthKey_(new Date()));
     return {
       ok: true,
       overview: getOverviewData_(),

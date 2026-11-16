@@ -25,6 +25,8 @@ function apiProcessStatement(file) { return safe_(function () { return processSt
 
 function apiDashboard() {
   return safe_(function () {
+    // Na začátku měsíce rovnou založí záložku nového měsíce
+    getOrCreateMonthSheet_(monthKey_(new Date()));
     return {
       ok: true,
       overview: getOverviewData_(),

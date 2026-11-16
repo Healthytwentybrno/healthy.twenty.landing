@@ -130,7 +130,7 @@ function saveDocEntry_(e, makeLink) {
       ? bestMatch_({ amount: e.amount, date: e.docDate, vs: e.matchVs, supplier: e.supplier }, candidates, true)
       : null;
 
-    const monthKey = match ? match.sheet.getName() : monthKey_(e.docDate || new Date());
+    const monthKey = match ? monthKeyFromName_(match.sheet.getName()) : monthKey_(e.docDate || new Date());
     const link = makeLink(monthKey);
 
     let sheet;

@@ -127,7 +127,7 @@ function processStatement(file) {
         merged[COL.STATUS - 1] = STATUS.MATCHED;
         merged[COL.SOURCE - 1] = 'Banka + doklad';
         merged[COL.PAYMENT_ID - 1] = p.id;
-        if (hit.sheet.getName() === key) {
+        if (monthKeyFromName_(hit.sheet.getName()) === key) {
           hit.sheet.getRange(hit.row, 1, 1, NUM_COLS).setValues([merged]);
           touched[key] = hit.sheet;
         } else {

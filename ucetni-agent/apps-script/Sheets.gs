@@ -32,16 +32,30 @@ function fmtKc_(n) {
 
 // ---------- Měsíční záložky ----------
 
+/** Všechny měsíční záložky. Staré názvy „2026-11“ rovnou přejmenuje na „Listopad 2026“. */
+function monthSheets_() {
+  return ss_().getSheets().filter(function (s) {
+    const name = s.getName();
+    if (!MONTH_SHEET_RE.test(name)) return monthKeyFromName_(name) !== null;
+    s.setName(monthSheetName_(name));
+    return true;
+  });
+}
+
 function getOrCreateMonthSheet_(key) {
   const ss = ss_();
-  let sh = ss.getSheetByName(key);
+  const name = monthSheetName_(key);
+  const months = monthSheets_();
+  let sh = ss.getSheetByName(name);
   if (sh) return sh;
 
-  // Zařadit záložku chronologicky za Přehled
-  const months = ss.getSheets().filter(function (s) { return MONTH_SHEET_RE.test(s.getName()); });
+  // Zařadit záložku chronologicky (za poslední dřívější měsíc, jinak hned za Přehled)
   let index = 1;
-  months.forEach(function (s) { if (s.getName() > key) return; index = Math.max(index, s.getIndex()); });
-  sh = ss.insertSheet(key, index);
+  months.forEach(function (s) {
+    if (monthKeyFromName_(s.getName()) > key) return;
+    index = Math.max(index, s.getIndex());
+  });
+  sh = ss.insertSheet(name, index);
 
   sh.getRange(1, 1, 1, NUM_COLS).setValues([MONTH_HEADERS])
     .setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
@@ -101,8 +115,7 @@ function getOrCreateMonthSheet_(key) {
 /** Všechny řádky ze všech měsíčních záložek: [{sheet, row, v: [...hodnoty]}] */
 function readAllMonthRows_() {
   const out = [];
-  ss_().getSheets().forEach(function (sh) {
-    if (!MONTH_SHEET_RE.test(sh.getName())) return;
+  monthSheets_().forEach(function (sh) {
     const last = sh.getLastRow();
     if (last < 2) return;
     const values = sh.getRange(2, 1, last - 1, NUM_COLS).getValues();
@@ -136,8 +149,8 @@ function rebuildOverview_() {
   let sh = ss.getSheetByName(SHEET_NAMES.OVERVIEW);
   if (!sh) sh = ss.insertSheet(SHEET_NAMES.OVERVIEW, 0);
 
-  const months = ss.getSheets().map(function (s) { return s.getName(); })
-    .filter(function (n) { return MONTH_SHEET_RE.test(n); }).sort();
+  const months = monthSheets_().map(function (s) { return s.getName(); })
+    .sort(function (a, b) { return monthKeyFromName_(a) < monthKeyFromName_(b) ? -1 : 1; });
 
   sh.clear();
   const header = ['Měsíc', 'Tržby', 'Náklady', 'Zisk', 'Marže', 'Počet dokladů', 'Chybí doklad', 'Doklad bez platby'];
@@ -171,7 +184,7 @@ function getOverviewData_() {
   if (!sh || sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues().map(function (r) {
     return {
-      month: String(r[0]), revenue: Number(r[1]) || 0, costs: Number(r[2]) || 0,
+      month: String(r[0]), key: monthKeyFromName_(r[0]), revenue: Number(r[1]) || 0, costs: Number(r[2]) || 0,
       profit: Number(r[3]) || 0, docs: Number(r[5]) || 0, missing: Number(r[6]) || 0,
       unpaid: Number(r[7]) || 0,
     };
