@@ -31,7 +31,7 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
   .card h2 { font-size: 16px; margin: 0 0 8px; }
   .muted { color: var(--muted); font-size: 13px; }
-  .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 26px 12px; text-align: center; cursor: pointer; }
+  .drop { display: block; border: 2px dashed var(--line); border-radius: 12px; padding: 26px 12px; text-align: center; cursor: pointer; }
   .drop.over { border-color: var(--accent); background: var(--accent-soft); }
   .drop strong { display: block; font-size: 16px; margin-bottom: 4px; }
   input[type=file] { display: none; }
@@ -59,6 +59,8 @@
   form.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   form.grid label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); gap: 4px; }
   form.grid .full { grid-column: 1 / -1; }
+  textarea { font: inherit; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px;
+             background: var(--bg); color: var(--text); width: 100%; resize: vertical; }
   input, select { font: inherit; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px;
                   background: var(--bg); color: var(--text); width: 100%; }
   .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
@@ -103,6 +105,15 @@
         <input type="file" id="fileDoc" accept="image/*,application/pdf" multiple>
       </label>
       <ul class="log" id="logDoc"></ul>
+    </div>
+    <div class="card">
+      <h2>✍️ Zapsat náklad slovně</h2>
+      <p class="muted">Pro náklady, ke kterým už účetní má smlouvu nebo doklad (nájem, energie, leasing…).
+        Vždy se zapíše jako náklad a spáruje se s platbou z výpisu.</p>
+      <form id="formText">
+        <textarea id="txtExpense" rows="3" placeholder="např. Nájem studia za listopad 25 000 Kč, pronajímatel Novák, VS 112026"></textarea>
+        <p style="margin:10px 0 0"><button class="btn" type="submit">Zapsat náklad</button></p>
+      </form>
     </div>
   </section>
 
@@ -170,6 +181,9 @@
     </div>
   </section>
 </main>
+<footer style="text-align:center;padding:4px 16px 24px" class="muted">
+  Verze aplikace: <span id="verHtml">2026-11-16</span> · server: <span id="verServer">…</span>
+</footer>
 
 <script>
   // ---------- Záložky ----------
@@ -304,10 +318,21 @@
     var res = await call('apiMemberships');
     if (!res.ok) { document.getElementById('members').textContent = res.message; return; }
     members = res.list; warnDays = res.warnDays;
+    members.forEach(function (m) { m.daysLeft = daysFromIso(m.endIso); });
     var sel = document.getElementById('selType'), keep = sel.value;
     sel.innerHTML = res.types.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('');
     if (keep) sel.value = keep;
     renderMembers();
+  }
+
+  /** Počet dní od dneška do data 'YYYY-MM-DD' (dnes = 0). Neznámé → null. */
+  function daysFromIso(iso) {
+    var p = String(iso || '').split('-');
+    if (p.length !== 3) return null;
+    var end = new Date(+p[0], +p[1] - 1, +p[2]);
+    var now = new Date(); now = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var d = Math.round((end - now) / 86400000);
+    return isFinite(d) ? d : null;
   }
 
   function dny(n) { return n === 1 ? '1 den' : (n >= 2 && n <= 4) ? n + ' dny' : n + ' dní'; }
@@ -326,7 +351,7 @@
     box.classList.remove('muted');
     box.innerHTML = list.map(function (m) {
       var cls = m.daysLeft < 0 ? 'exp' : m.daysLeft <= warnDays ? 'soon' : 'ok';
-      var txt = (m.daysLeft === null || m.daysLeft === undefined) ? 'chybí platnost typu' : m.daysLeft < 0 ? 'prošla před ' + dny(-m.daysLeft)
+      var txt = (typeof m.daysLeft !== 'number') ? 'chybí platnost typu' : m.daysLeft < 0 ? 'prošla před ' + dny(-m.daysLeft)
         : m.daysLeft === 0 ? 'končí dnes' : 'zbývá ' + dny(m.daysLeft);
       return '<div class="member"><div><b>' + esc(m.name) + '</b><div class="muted">' + esc(m.type) +
         (m.phone ? ' · <a href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a>' : '') +
@@ -356,6 +381,25 @@
       loadMembers();
     }
   });
+
+  // ---------- Náklad slovně ----------
+  document.getElementById('formText').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var ta = document.getElementById('txtExpense'), text = ta.value.trim();
+    if (!text) return;
+    var log = document.getElementById('logDoc'), li = document.createElement('li');
+    li.innerHTML = '<span class="spinner"></span>' + esc(text) + ' – zapisuju…';
+    log.prepend(li);
+    var res = await call('apiProcessTextExpense', text);
+    li.className = !res.ok ? 'bad' : (res.duplicate || res.matched === false) ? 'warn' : 'ok';
+    li.innerHTML = esc(res.message) + (res.details ? '<small>' + esc(res.details.kategorie) + ' · ' + esc(res.details.popis) + '</small>' : '');
+    if (res.ok && !res.duplicate) ta.value = '';
+  });
+
+  // ---------- Verze ----------
+  google.script.run.withSuccessHandler(function (v) {
+    document.getElementById('verServer').textContent = v || '?';
+  }).withFailureHandler(function () {}).apiVersion();
 </script>
 </body>
 </html>

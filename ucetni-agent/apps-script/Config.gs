@@ -4,6 +4,7 @@
  * (nastavuje se přes menu „Účetní agent → Nastavit API klíč“).
  */
 const CONFIG = {
+  VERSION: '2026-11-16',      // zobrazuje se dole v aplikaci – podle toho poznáš, že běží nová verze
   MODEL: 'claude-opus-5-5',
   EFFORT_RECEIPT: 'medium',   // čtení dokladů
   EFFORT_STATEMENT: 'low',    // přepis výpisu (jednoduchý, ale dlouhý úkol)

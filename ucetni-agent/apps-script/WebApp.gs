@@ -19,6 +19,8 @@ function safe_(fn) {
 }
 
 function apiProcessReceipt(file) { return safe_(function () { return processReceipt(file); }); }
+function apiProcessTextExpense(text) { return safe_(function () { return processTextExpense(text); }); }
+function apiVersion() { return CONFIG.VERSION; }
 function apiProcessStatement(file) { return safe_(function () { return processStatement(file); }); }
 
 function apiDashboard() {

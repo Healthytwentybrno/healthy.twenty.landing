@@ -143,6 +143,7 @@ function getMemberships_() {
         name: String(r[0]), email: String(r[1]), phone: String(r[2]), type: String(r[3]),
         bought: bought ? fmtDate_(bought) : '',
         end: end ? fmtDate_(end) : '',
+        endIso: end ? Utilities.formatDate(end, CONFIG.TIMEZONE, 'yyyy-MM-dd') : '',
         daysLeft: daysLeft, status: membershipStatus_(daysLeft), note: String(r[9]),
       };
     })
